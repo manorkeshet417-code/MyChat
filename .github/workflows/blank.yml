@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<title>MyChat Advanced</title>
+<style>
+body, html {margin:0; padding:0; font-family: Arial; height:100%; background:#f0f0f0;}
+#loginPage {display:flex; justify-content:center; align-items:center; height:100%;}
+#loginBox {background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.2); width:300px; text-align:center;}
+#loginBox input {width:90%; padding:10px; margin:10px 0;}
+#loginBox button {padding:10px 15px; margin:5px; cursor:pointer;}
+#homePage {display:none; height:100%; display:flex;}
+#sidebar {width:200px; background:#fff; border-right:1px solid #ccc; display:flex; flex-direction:column; overflow-y:auto;}
+#sidebar h3 {text-align:center; padding:10px 0; margin:0; border-bottom:1px solid #ccc;}
+.userItem {padding:10px; border-bottom:1px solid #eee; cursor:pointer; position:relative;}
+.userItem:hover {background:#f1f1f1;}
+.userItem.active {background:#d0e6f7;}
+#chatArea {flex:1; display:flex; flex-direction:column; position:relative;}
+#chatTabs {display:flex; background:#ddd; border-bottom:1px solid #ccc; overflow-x:auto;}
+.tabItem {padding:10px; cursor:pointer; position:relative;}
+.tabItem.active {background:#fff; border-top-left-radius:5px; border-top-right-radius:5px;}
+#chatHeader {padding:10px; background:#eee; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ccc;}
+#chatBox {flex:1; padding:10px; overflow-y:auto; background:#e5ddd5; display:flex; flex-direction:column;}
+.message {margin:5px 0; padding:8px; border-radius:8px; max-width:70%; word-wrap:break-word;}
+.fromCurrent {background:#dcf8c6; align-self:flex-end;}
+.fromOther {background:#fff; align-self:flex-start;}
+#chatInputContainer {display:flex; border-top:1px solid #ccc;}
+#messageInput {flex:1; padding:10px; border:none; outline:none;}
+#sendBtn {padding:10px 15px; border:none; background:#128C7E; color:white; cursor:pointer;}
+#menuBtn, #callBtn {cursor:pointer; font-size:20px; background:none; border:none;}
+#menuOptions {display:none; position:absolute; top:40px; right:10px; background:#fff; border:1px solid #ccc; border-radius:5px; z-index:10;}
+#menuOptions button {display:block; width:100%; padding:8px 10px; border:none; background:none; text-align:left; cursor:pointer;}
+#menuOptions button:hover {background:#eee;}
+#settingsModal {display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+background:#fff; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.3); z-index:20;}
+#settingsModal select, #settingsModal input {margin:5px 0; width:80%; padding:5px;}
+#incomingCall {display:none; position:fixed; top:40%; left:50%; transform:translate(-50%,-50%);
+background:#fff; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.3); z-index:30; text-align:center;}
+#incomingCall button {margin:5px; padding:10px 20px; border:none; border-radius:5px; cursor:pointer; color:white;}
+#answerCallBtn{background:green;}
+#declineCallBtn{background:red;}
+#activeCall {display:none; position:fixed; bottom:20px; right:20px; background:#fff; border:1px solid #ccc; padding:10px; border-radius:10px; z-index:25; box-shadow:0 0 10px rgba(0,0,0,0.3);}
+#activeCall button {margin:5px; padding:5px 10px; cursor:pointer; border:none; border-radius:5px;}
+#notification {position:fixed; bottom:10px; right:10px; background:red; color:white; padding:10px; border-radius:5px; display:none;}
+</style>
+</head>
+<body>
+
+<audio id="ringTone" src="https://www.soundjay.com/button/sounds/button-16.mp3" preload="auto"></audio>
+
+<div id="loginPage">
+    <div id="loginBox">
+        <h2 data-key="welcome">ברוך הבא ל-MyChat</h2>
+        <input type="text" id="usernameInput" data-key="placeholderName" placeholder="שם משתמש">
+        <div>
+            <button id="signInBtn">Sign In</button>
+            <button id="logInBtn">Log In</button>
+        </div>
+        <p id="loginMsg" style="color:red;"></p>
+    </div>
+</div>
+
+<div id="homePage">
+    <div id="sidebar">
+        <h3 data-key="chatWith">הצ'אטים שלי</h3>
+        <div id="userList"></div>
+    </div>
+    <div id="chatArea">
+        <div id="chatTabs"></div>
+        <div id="chatHeader">
+            <span id="chatWithEl" data-key="chatWith">בחר משתמש</span>
+            <div style="position:relative;">
+                <button id="callBtn">📞</button>
+                <button id="menuBtn">⋮</button>
+                <div id="menuOptions">
+                    <button id="addUserBtn" data-key="addUser">+ הוסף משתמש</button>
+                    <button id="settingsBtn" data-key="settings">הגדרות</button>
+                    <button id="logoutBtn" data-key="logout">יציאה</button>
+                </div>
+            </div>
+        </div>
+        <div id="chatBox"></div>
+        <div id="chatInputContainer">
+            <input type="text" id="messageInput" placeholder="כתוב הודעה...">
+            <button id="sendBtn" data-key="send">שלח</button>
+        </div>
+    </div>
+</div>
+
+<div id="settingsModal">
+    <h3 data-key="settings">הגדרות</h3>
+    <div>
+        <label>בחר שפה:</label>
+        <select id="languageSelect">
+            <option value="he">עברית</option>
+            <option value="en">English</option>
+            <option value="ar">العربية</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+        </select>
+    </div>
+    <div style="margin-top:10px;">
+        <label>שנה שם משתמש:</label>
+        <input type="text" id="newNameInput" placeholder="שם חדש">
+        <button id="changeNameBtn">שנה שם</button>
+    </div>
+    <button id="closeSettingsBtn" style="margin-top:10px;">סגור</button>
+</div>
+
+<div id="incomingCall">
+    <h3 id="callerName">מי מתקשר</h3>
+    <button id="answerCallBtn">ענה</button>
+    <button id="declineCallBtn">דחה</button>
+</div>
+
+<div id="activeCall">
+    <h4 id="activeCallName"></h4>
+    <button id="addToCallBtn">הוסף איש קשר לשיחה</button>
+    <button id="endCallBtn">נתק</button>
+</div>
+
+<div id="notification"></div>
+
+<script>
+// --- מילון שפות ---
+const translations = {
+  he: { welcome:"ברוך הבא ל-MyChat", placeholderName:"שם משתמש", send:"שלח", settings:"הגדרות", logout:"יציאה", chatWith:"בחר משתמש", addUser:"+ הוסף משתמש", answer:"ענה", decline:"דחה", userExists:"שם זה כבר קיים", enterName:"אנא הזן שם משתמש", cantDeleteSelf:"לא ניתן למחוק את 'אני'" },
+  en: { welcome:"Welcome to MyChat", placeholderName:"Username", send:"Send", settings:"Settings", logout:"Logout", chatWith:"Select user", addUser:"+ Add User", answer:"Answer", decline:"Decline", userExists:"Username already exists", enterName:"Please enter a username", cantDeleteSelf:"Cannot delete 'Me'" },
+  ar: { welcome:"مرحبا بك في MyChat", placeholderName:"اسم المستخدم", send:"إرسال", settings:"الإعدادات", logout:"تسجيل الخروج", chatWith:"اختر مستخدماً", addUser:"+ أضف مستخدم", answer:"رد", decline:"رفض", userExists:"اسم المستخدم موجود", enterName:"الرجاء إدخال اسم مستخدم", cantDeleteSelf:"لا يمكن حذف 'أنا'" },
+  zh: { welcome:"欢迎使用 MyChat", placeholderName:"用户名", send:"发送", settings:"设置", logout:"登出", chatWith:"选择用户", addUser:"+ 添加用户", answer:"接听", decline:"拒绝", userExists:"用户名已存在", enterName:"请输入用户名", cantDeleteSelf:"不能删除 '我'" },
+  ko: { welcome:"MyChat에 오신 것을 환영합니다", placeholderName:"사용자 이름", send:"보내기", settings:"설정", logout:"로그아웃", chatWith:"사용자 선택", addUser:"+ 사용자 추가", answer:"응답", decline:"거부", userExists:"사용자 이름이 이미 존재", enterName:"사용자 이름을 입력하세요", cantDeleteSelf:"'나'는 삭제할 수 없습니다" }
+};
+
+// --- אלמנטים ---
+const loginPage=document.getElementById("loginPage");
+const homePage=document.getElementById("homePage");
+const usernameInput=document.getElementById("usernameInput");
+const signInBtn=document.getElementById("signInBtn");
+const logInBtn=document.getElementById("logInBtn");
+const loginMsg=document.getElementById("loginMsg");
+const userListEl=document.getElementById("userList");
+const chatTabsEl=document.getElementById("chatTabs");
+const chatBoxEl=document.getElementById("chatBox");
+const chatWithEl=document.getElementById("chatWithEl");
+const menuBtn=document.getElementById("menuBtn");
+const menuOptions=document.getElementById("menuOptions");
+const addUserBtn=document.getElementById("addUserBtn");
+const settingsBtn=document.getElementById("settingsBtn");
+const logoutBtn=document.getElementById("logoutBtn");
+const settingsModal=document.getElementById("settingsModal");
+const closeSettingsBtn=document.getElementById("closeSettingsBtn");
+const languageSelect=document.getElementById("languageSelect");
+const newNameInput=document.getElementById("newNameInput");
+const changeNameBtn=document.getElementById("changeNameBtn");
+const messageInput=document.getElementById("messageInput");
+const sendBtn=document.getElementById("sendBtn");
+const callBtn=document.getElementById("callBtn");
+const incomingCall=document.getElementById("incomingCall");
+const callerNameEl=document.getElementById("callerName");
+const answerCallBtn=document.getElementById("answerCallBtn");
+const declineCallBtn=document.getElementById("declineCallBtn");
+const activeCall=document.getElementById("activeCall");
+const activeCallName=document.getElementById("activeCallName");
+const addToCallBtn=document.getElementById("addToCallBtn");
+const endCallBtn=document.getElementById("endCallBtn");
+const ringTone=document.getElementById("ringTone");
+const notificationEl=document.getElementById("notification");
+
+let users={}; let currentUser=""; let activeChats=["אני"]; let currentChat="אני"; let callPartner=""; let ringInterval;
+
+// --- שמירה ---
+function saveUsers(){ localStorage.setItem("mychatUsers",JSON.stringify(users)); }
+if(localStorage.getItem("mychatUsers")) users=JSON.parse(localStorage.getItem("mychatUsers"));
+
+// --- תרגום ---
+function translatePage(lang){
+    document.querySelectorAll("[data-key]").forEach(el=>{
+        const key=el.getAttribute("data-key");
+        if(el.tagName==="INPUT") el.placeholder=translations[lang][key]||el.placeholder;
+        else el.innerText=translations[lang][key]||el.innerText;
+    });
+}
+
+// --- Sign In / Log In ---
+signInBtn.addEventListener("click",()=>{
+    const name=usernameInput.value.trim();
+    if(!name){ loginMsg.innerText=translations[languageSelect.value].enterName; return;}
+    if(users[name]){ loginMsg.innerText=translations[languageSelect.value].userExists; return;}
+    users[name]={"אני":[]}; saveUsers(); currentUser=name; activeChats=["אני"]; currentChat="אני"; openHome();
+});
+logInBtn.addEventListener("click",()=>{
+    const name=usernameInput.value.trim();
+    if(!name){ loginMsg.innerText=translations[languageSelect.value].enterName; return;}
+    if(!users[name]){ loginMsg.innerText="משתמש לא קיים"; return;}
+    currentUser=name; activeChats=["אני"]; currentChat="אני"; openHome();
+});
+
+// --- Home ---
+function openHome(){ loginPage.style.display="none"; homePage.style.display="flex"; renderUserList(); renderTabs(); renderChat(); translatePage(languageSelect.value); }
+languageSelect.addEventListener("change",()=>{ translatePage(languageSelect.value); });
+
+// --- Send message ---
+sendBtn.addEventListener("click",()=>{ sendMessage(); });
+function sendMessage(){
+    const msg=messageInput.value.trim(); if(!msg) return;
+    if(!users[currentUser][currentChat]) users[currentUser][currentChat]=[];
+    users[currentUser][currentChat].push({from:currentUser,text:msg}); saveUsers();
+    messageInput.value=""; renderChat(); notifyOtherUser(currentChat,msg);
+}
+
+// --- Notify other user ---
+function notifyOtherUser(user,msg){
+    const allUsers=JSON.parse(localStorage.getItem("mychatUsers"));
+    if(allUsers[user]){
+        const notifList=allUsers[user]["__notif__"]||[];
+        notifList.push({from:currentUser,text:msg});
+        allUsers[user]["__notif__"]=notifList;
+        localStorage.setItem("mychatUsers",JSON.stringify(allUsers));
+    }
+}
+
+// --- Check notifications ---
+setInterval(()=>{
+    if(!currentUser) return;
+    const allUsers=JSON.parse(localStorage.getItem("mychatUsers"));
+    const notifs=allUsers[currentUser]["__notif__"]||[];
+    notifs.forEach(n=>{
+        notificationEl.style.display="block";
+        notificationEl.innerText=`${n.from} שלח הודעה: ${n.text}`;
+        setTimeout(()=>{notificationEl.style.display="none";},3000);
+        if(!users[currentUser][n.from]){ users[currentUser][n.from]=[]; activeChats.push(n.from); }
+        users[currentUser][n.from].push(n);
+    });
+    if(allUsers[currentUser]) allUsers[currentUser]["__notif__"]=[]; localStorage.setItem("mychatUsers",JSON.stringify(allUsers));
+    renderUserList(); renderTabs(); renderChat();
+},1000);
+
+// --- Render Chat ---
+function renderChat(){
+    chatBoxEl.innerHTML="";
+    const messages=users[currentUser][currentChat]||[];
+    messages.forEach(m=>{
+        const div=document.createElement("div");
+        div.className="message "+(m.from===currentUser?"fromCurrent":"fromOther");
+        div.innerText=m.text;
+        chatBoxEl.appendChild(div);
+    });
+    chatBoxEl.scrollTop=chatBoxEl.scrollHeight;
+}
+
+// --- User List ---
+function renderUserList(){
+    userListEl.innerHTML="";
+    for(const u in users[currentUser]){
+        if(u==="__notif__") continue;
+        const div=document.createElement("div");
+        div.className="userItem"+(currentChat===u?" active":"");
+        div.innerText=u;
+        div.addEventListener("click",()=>{ currentChat=u; renderUserList(); renderChat(); chatWithEl.innerText=u; });
+        div.addEventListener("contextmenu",(e)=>{
+            e.preventDefault();
+            if(u==="אני"){ alert(translations[languageSelect.value].cantDeleteSelf); return;}
+            const action=prompt("delete/change? (d/c)");
+            if(action==="d"){ delete users[currentUser][u]; saveUsers(); renderUserList(); renderTabs(); }
+            if(action==="c"){ const newName=prompt("שם חדש"); if(newName && !users[currentUser][newName]){ users[currentUser][newName]=users[currentUser][u]; delete users[currentUser][u]; saveUsers(); renderUserList(); renderTabs(); } }
+        });
+        userListEl.appendChild(div);
+    }
+}
+
+// --- Tabs ---
+function renderTabs(){
+    chatTabsEl.innerHTML="";
+    activeChats.forEach(c=>{
+        if(c==="__notif__") return;
+        const tab=document.createElement("div");
+        tab.className="tabItem"+(c===currentChat?" active":"");
+        tab.innerText=c;
+        tab.addEventListener("click",()=>{ currentChat=c; renderTabs(); renderChat(); chatWithEl.innerText=c; });
+        chatTabsEl.appendChild(tab);
+    });
+}
+
+// --- Menu ---
+menuBtn.addEventListener("click",()=>{ menuOptions.style.display=menuOptions.style.display==="block"?"none":"block"; });
+addUserBtn.addEventListener("click",()=>{
+    const newU=prompt("מי להוסיף?");
+    if(newU && !users[currentUser][newU]){ users[currentUser][newU]=[]; activeChats.push(newU); saveUsers(); renderUserList(); renderTabs(); }
+});
+settingsBtn.addEventListener("click",()=>{ settingsModal.style.display="block"; });
+closeSettingsBtn.addEventListener("click",()=>{ settingsModal.style.display="none"; });
+changeNameBtn.addEventListener("click",()=>{
+    const newName=newNameInput.value.trim();
+    if(newName && !users[currentUser][newName]){
+        users[newName]=users[currentUser]; delete users[currentUser]; currentUser=newName; saveUsers(); renderUserList(); renderTabs(); settingsModal.style.display="none";
+    }
+});
+logoutBtn.addEventListener("click",()=>{ location.reload(); });
+
+// --- Call ---
+callBtn.addEventListener("click",()=>{
+    const partner=prompt("מי לשוחח איתו?");
+    if(partner && users[currentUser][partner]) initiateCall(partner);
+});
+
+function initiateCall(partner){
+    callPartner=partner; incomingCall.style.display="block"; callerNameEl.innerText=partner;
+    ringInterval=setInterval(()=>{ ringTone.play(); },5000);
+}
+
+answerCallBtn.addEventListener("click",()=>{
+    incomingCall.style.display="none"; clearInterval(ringInterval); activeCall.style.display="block"; activeCallName.innerText=callPartner;
+});
+declineCallBtn.addEventListener("click",()=>{ incomingCall.style.display="none"; clearInterval(ringInterval); callPartner=""; });
+endCallBtn.addEventListener("click",()=>{ activeCall.style.display="none"; callPartner=""; });
+addToCallBtn.addEventListener("click",()=>{
+    const newU=prompt("מי להוסיף לשיחה?");
+    if(newU && users[currentUser][newU]) alert(`${newU} נוסף לשיחה`);
+});
+
+// --- Initialize ---
+translatePage(languageSelect.value);
+</script>
+</body>
+</html>
